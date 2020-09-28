@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="right">
+    <LinearLayout
+        android:orientation="vertical"
+        android:gravity="right"
+        android:padding="10dp"
+        android:layout_width="300dp"
+        android:layout_height="wrap_content">
+        <LinearLayout
+            android:visibility="gone"
+            android:gravity="left"
+            android:layout_width="35dp"
+            android:layout_height="35dp">
+            <de.hdodenhof.circleimageview.CircleImageView
+                android:id="@+id/avatar_chat"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/avatar">
+            </de.hdodenhof.circleimageview.CircleImageView>
+        </LinearLayout>
+        <TextView
+            android:id="@+id/time_message"
+            android:paddingLeft="10dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="20:55">
+        </TextView>
+        <TextView
+            android:id="@+id/show_message"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:background="@drawable/send_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="How are you today ?dttyardyras"
+            android:textSize="23dp">
+        </TextView>
+    </LinearLayout>
+</LinearLayout>

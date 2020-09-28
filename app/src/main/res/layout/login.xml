@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".Activities.Login"
+    android:background="@color/main"
+    android:orientation="vertical"
+    android:weightSum="100">
+    <LinearLayout
+        android:gravity="center"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="25"
+        android:orientation="vertical">
+        <ImageView
+            android:layout_width="200dp"
+            android:layout_height="100dp"
+            android:src="@drawable/logob">
+        </ImageView>
+        <TextView
+            android:textStyle="bold"
+            android:textColor="#fff"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="cursive"
+            android:text="Be On Fresh"
+            android:textSize="30sp"></TextView>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="75"
+        android:background="@drawable/backround_registration"
+        android:gravity="center"
+        android:orientation="vertical">
+        <LinearLayout
+            android:layout_width="300dp"
+            android:layout_height="40dp"
+            android:layout_marginBottom="30dp"
+            android:background="@drawable/bg_edit"
+            android:gravity="center">
+
+            <EditText
+                android:id="@+id/login_edit_domain"
+                android:layout_width="290dp"
+                android:layout_height="match_parent"
+                android:background="@null"
+                android:hint="Domain"
+                android:text="bof-ims.dek.vn"
+                android:padding="5dp"></EditText>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="300dp"
+            android:layout_height="40dp"
+            android:layout_marginBottom="30dp"
+            android:background="@drawable/bg_edit"
+            android:gravity="center">
+            <EditText
+                android:text=""
+                android:id="@+id/login_edit_username"
+                android:layout_width="290dp"
+                android:layout_height="match_parent"
+                android:background="@null"
+                android:hint="Username"
+                android:padding="5dp"></EditText>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="300dp"
+            android:layout_height="40dp"
+            android:layout_marginBottom="20dp"
+            android:background="@drawable/bg_edit"
+            android:gravity="center">
+
+            <EditText
+                android:text=""
+                android:id="@+id/login_edit_password"
+                android:layout_width="290dp"
+                android:layout_height="match_parent"
+                android:background="@null"
+                android:hint="Password"
+                android:inputType="textPassword"
+                android:padding="5dp"></EditText>
+        </LinearLayout>
+
+<!--        <LinearLayout-->
+<!--            android:layout_width="115dp"-->
+<!--            android:layout_height="47dp"-->
+<!--            android:layout_marginBottom="50dp"-->
+<!--            android:background="@drawable/bg_edit"-->
+<!--            android:gravity="center">-->
+
+<!--            <EditText-->
+<!--                android:id="@+id/expire_time"-->
+<!--                android:layout_width="110dp"-->
+<!--                android:layout_height="match_parent"-->
+<!--                android:background="@null"-->
+<!--                android:padding="5dp"-->
+
+<!--                android:text="3600"-->
+<!--                android:textAlignment="center"></EditText>-->
+<!--        </LinearLayout>-->
+
+
+        <Button
+            android:id="@+id/login_btn_login"
+            android:layout_width="250dp"
+            android:layout_height="40dp"
+            android:background="@drawable/gradient_btn"
+            android:text="Register"></Button>
+
+    </LinearLayout>
+
+</LinearLayout>

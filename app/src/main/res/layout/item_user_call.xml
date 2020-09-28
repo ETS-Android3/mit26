@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF"
+    android:orientation="vertical">
+    <Switch
+        android:visibility="gone"
+        android:id="@+id/call_with_video"
+        android:text="Call with video"
+        android:checked="true"
+        android:layout_marginTop="10dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:orientation="horizontal"
+        android:weightSum="100">
+        <LinearLayout
+            android:gravity="center"
+            android:layout_marginLeft="5dp"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="20">
+            <de.hdodenhof.circleimageview.CircleImageView
+                android:id="@+id/itemUserCall_avatar1"
+                android:layout_width="55dp"
+                android:layout_height="55dp"
+                android:src="@drawable/avatar">
+            </de.hdodenhof.circleimageview.CircleImageView>
+        </LinearLayout>
+        <LinearLayout
+           android:gravity="center|left"
+            android:orientation="vertical"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="50">
+            <TextView
+                android:id="@+id/itemUserCall_userName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Be on Fresh"
+                android:textSize="25sp"
+                android:textColor="#232323">
+            </TextView>
+        </LinearLayout>
+        <LinearLayout
+            android:gravity="center"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="30">
+            <ImageView
+                android:id="@+id/itemUserCall_VoiceCall"
+                android:layout_marginRight="10dp"
+                android:src="@drawable/call"
+                android:layout_width="35dp"
+                android:layout_height="35dp">
+            </ImageView>
+            <ImageView
+                android:id="@+id/itemUserCall_VideoCall"
+                android:src="@drawable/video"
+                android:layout_width="35dp"
+                android:layout_height="35dp">
+            </ImageView>
+
+        </LinearLayout>
+    </LinearLayout>
+    <LinearLayout
+        android:background="#858585"
+        android:layout_width="match_parent"
+        android:layout_height="1dp">
+    </LinearLayout>
+
+</LinearLayout>

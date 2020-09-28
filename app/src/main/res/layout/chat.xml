@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".Activities.Chat1"
+    android:weightSum="100"
+    android:orientation="vertical">
+
+    // toolbar
+    <LinearLayout
+        android:orientation="vertical"
+        android:background="@color/gray"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="7">
+        <androidx.appcompat.widget.Toolbar
+            android:layout_gravity="center"
+            android:id="@+id/toolbar_chat"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:weightSum="10"
+                android:orientation="horizontal">
+                <LinearLayout
+                    android:gravity="center"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="10">
+                    <TextView
+                        android:id="@+id/chat_userName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="cursive"
+                        android:text="Minh Duc"
+                        android:textColor="@color/main"
+                        android:textSize="23sp"
+                        android:textStyle="bold"></TextView>
+                </LinearLayout>
+            </LinearLayout>
+
+
+        </androidx.appcompat.widget.Toolbar>
+    </LinearLayout>
+    // message
+    <LinearLayout
+        android:background="#EAE9E9"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="85">
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/listChat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+        </androidx.recyclerview.widget.RecyclerView>
+    </LinearLayout>
+    //typing area
+    <LinearLayout
+        android:background="@color/gray"
+        android:paddingLeft="6dp"
+        android:padding="3dp"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="8"
+        android:weightSum="100"
+        android:orientation="horizontal">
+        <LinearLayout
+            android:background="@drawable/bg_edit"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="83">
+            <EditText
+                android:id="@+id/textInput"
+                android:hint=" Message"
+                android:background="@null"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+            </EditText>
+        </LinearLayout>
+        <LinearLayout
+            android:gravity="center"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="17">
+            <ImageView
+                android:id="@+id/btn_sendMessage"
+                android:src="@drawable/send"
+                android:layout_width="40dp"
+                android:layout_height="40dp">
+            </ImageView>
+        </LinearLayout>
+
+    </LinearLayout>
+
+
+</LinearLayout>

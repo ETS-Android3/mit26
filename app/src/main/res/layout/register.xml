@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/rigister"
+    android:orientation="vertical"
+    tools:context=".Activities.MainActivity"
+    android:weightSum="100">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="30">
+        <ImageView
+            android:id="@+id/register_img_back"
+            android:padding="3dp"
+            android:layout_marginLeft="10dp"
+            android:layout_marginTop="10dp"
+            android:src="@drawable/back"
+            android:layout_width="50dp"
+            android:layout_height="50dp">
+        </ImageView>
+    </LinearLayout>
+    <LinearLayout
+        android:layout_marginTop="20sp"
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="70"
+        android:gravity="top|center">
+
+        <EditText
+           android:gravity="center"
+            android:hint="Email"
+            android:layout_width="280dp"
+            android:layout_height="50dp"
+            android:layout_marginBottom="15dp"
+            android:background="@drawable/edit_white"
+            android:fontFamily="sans-serif-condensed"
+            android:textSize="20sp"></EditText>
+        <EditText
+            android:gravity="center"
+            android:hint="Password"
+            android:inputType="textPassword"
+            android:layout_width="280dp"
+            android:layout_height="50dp"
+            android:layout_marginBottom="15dp"
+            android:background="@drawable/edit_white"
+            android:fontFamily="sans-serif-condensed"
+            android:textSize="20sp"></EditText>
+        <EditText
+            android:gravity="center"
+            android:hint="Confirm"
+            android:layout_width="280dp"
+            android:layout_height="50dp"
+            android:layout_marginBottom="15dp"
+            android:background="@drawable/edit_white"
+            android:fontFamily="sans-serif-condensed"
+            android:textSize="20sp"></EditText>
+
+
+
+        <Button
+            android:layout_width="250dp"
+            android:layout_height="50dp"
+            android:background="@drawable/button"
+            android:fontFamily="sans-serif-condensed"
+            android:text="Start"
+            android:textSize="20sp"></Button>
+    </LinearLayout>
+
+</LinearLayout>
