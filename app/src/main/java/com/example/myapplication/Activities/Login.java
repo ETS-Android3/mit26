@@ -146,10 +146,7 @@ public class Login extends AppCompatActivity {
     }
 
     private boolean checkValidation() {
-        if(edit_username.length()<=0 || edit_password.length()<=0 || edit_password.length()<=0 ){
-            return false;
-        }
-        return true;
+        return edit_username.length() > 0 && edit_password.length() > 0;
     }
 
     private void mapping() {
