@@ -28,6 +28,7 @@ import org.linphone.core.Core;
 import org.linphone.core.CoreListenerStub;
 import org.linphone.core.Factory;
 import org.linphone.core.LogCollectionState;
+import org.linphone.core.Reason;
 import org.linphone.core.tools.Log;
 import org.linphone.mediastream.Version;
 
@@ -55,6 +56,12 @@ public class LinphoneService extends Service {
 
     private Core mCore;
     private CoreListenerStub mCoreListener;
+
+    public static boolean enableRedirect = false;
+
+    // public static boolean isForbidden = false;
+
+    public static String redirected_callee;
 
     public static boolean isReady() {
         return sInstance != null;
@@ -92,71 +99,77 @@ public class LinphoneService extends Service {
         dumpInstalledLinphoneInformation();
 
         mHandler = new Handler();
+        // athang - mit26 fix state and turn off ringing
         // This will be our main Core listener, it will change activities depending on events
         mCoreListener = new CoreListenerStub() {
             @Override
             public void onCallStateChanged(Core core, Call call, Call.State state, String message) {
+                /* ------------------------- DEBUG ------------------------------------ */
+//                Log.e("Current state: " + state + " | " + message);
+                /* ------------------------- DEBUG ------------------------------------ */
 
-
-                //  Toast.makeText(LinphoneService.this, message, Toast.LENGTH_SHORT).show();
                 if (state == Call.State.IncomingReceived) {
-
-
+                    // Call preparation
                     CallParams params = getCore().createCallParams(call);
+                    String caller = call.getRemoteAddress().getUsername() + "@bof-ims.dek.vn";
+                    // String redirected_callee = "toan@bof-ims.dek.vn";
 
-                    boolean checkVideo = call.getRemoteParams().videoEnabled();
-                    String idUser = "sip:" + call.getRemoteAddress().getUsername() + "@bof-ims.dek.vn";
-                    //System.out.println(idUser + " idid");
-                    getAvatar getAvatar = new getAvatar();
-                    getAvatar.execute(idUser);
-                    while (getAvatar.getAvatar().equals("undefined")) {
+                    // Redirect call to redirected_callee if the caller
+                    // is not the redirected_callee
+                    if (LinphoneService.enableRedirect && !caller.equals(redirected_callee)) {
+                        call.redirect(redirected_callee);
+                        call.terminate();
+                    } else {
+                        boolean checkVideo = call.getRemoteParams().videoEnabled();
+                        String idUser = "sip:" + caller;
+                        //System.out.println(idUser + " idid");
+                        getAvatar getAvatar = new getAvatar();
+                        getAvatar.execute(idUser);
+                        while (getAvatar.getAvatar().equals("undefined")) {
 
-                    }
-                    String avatar = getAvatar.getAvatar();
-                    String displayName = getAvatar.getDisplayName();
+                        }
+                        String avatar = getAvatar.getAvatar();
+                        String displayName = getAvatar.getDisplayName();
 
-                    if (checkVideo == false) {
-                        params.enableVideo(false);
-                        //System.out.println("doan11");
-                        Intent intent = new Intent(LinphoneService.this, voiceCall_End.class);
-                        intent.putExtra("disPlayName", displayName);
-                        intent.putExtra("avatar", avatar);
-                        intent.putExtra("idUser", idUser);
-                        // As it is the Service that is starting the activity, we have to give this flag
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(intent);
+                        if (!checkVideo) {
+                            params.enableVideo(false);
+                            //System.out.println("doan11");
+                            Intent intent = new Intent(LinphoneService.this, voiceCall_End.class);
+                            intent.putExtra("disPlayName", displayName);
+                            intent.putExtra("avatar", avatar);
+                            intent.putExtra("idUser", idUser);
+                            // As it is the Service that is starting the activity, we have to give this flag
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(intent);
+                        }
+                        if (checkVideo) {
+                            params.enableVideo(true);
+                            //System.out.println("doan12");
+                            Intent intent = new Intent(LinphoneService.this, videoCall_End.class);
+                            intent.putExtra("disPlayName", displayName);
+                            intent.putExtra("avatar", avatar);
+                            intent.putExtra("idUser", idUser);
+                            // As it is the Service that is starting the activity, we have to give this flag
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(intent);
+                        }
                     }
-                    if (checkVideo == true) {
-                        params.enableVideo(true);
-                        //System.out.println("doan12");
-                        Intent intent = new Intent(LinphoneService.this, videoCall_End.class);
-                        intent.putExtra("disPlayName", displayName);
-                        intent.putExtra("avatar", avatar);
-                        intent.putExtra("idUser", idUser);
-                        // As it is the Service that is starting the activity, we have to give this flag
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(intent);
-                    }
-                } else if (state == Call.State.Connected && call.getRemoteParams().videoEnabled() == true) {
+                }
+
+                if (state == Call.State.Connected && call.getRemoteParams().videoEnabled()) {
                     // This stats means the call has been established, let's start the call activity
                     Intent intent = new Intent(LinphoneService.this, videoCall_Start.class);
                     // As it is the Service that is starting the activity, we have to give this flag
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     startActivity(intent);
                 }
+
+                // When the user is blocked
+                if (state == Call.State.Error) {
+                    Toast.makeText(getApplicationContext(),"Can't establish call: " +  message, Toast.LENGTH_SHORT).show();
+                }
             }
         };
-
-//        try {
-//            // Let's copy some RAW resources to the device
-//            // The default config file must only be installed once (the first time)
-//            //copyIfNotExist(R.raw.linphonerc_default, basePath + "/.linphonerc");
-//            // The factory config is used to override any other setting, let's copy it each time
-//           // copyFromPackage(R.raw.linphonerc_factory, "linphonerc");
-//        } catch (IOException ioe) {
-
-//            Log.e(ioe);
-//        }
 
         // Create the Core and add our listener
         mCore = Factory.instance()
@@ -342,6 +355,4 @@ public class LinphoneService extends Service {
         lOutputStream.close();
         lInputStream.close();
     }
-
-
 }

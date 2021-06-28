@@ -2,10 +2,11 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/logout"
-        android:icon="@drawable/chat"
         android:title="Logout" />
     <item
         android:id="@+id/Another"
-        android:icon="@drawable/call"
         android:title="Another" />
+    <item
+        android:id="@+id/Redirect"
+        android:title="Redirect call" />
 </menu>

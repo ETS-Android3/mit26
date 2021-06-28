@@ -17,6 +17,7 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.myapplication.Activities.MainActivity;
 import com.example.myapplication.Activities.videoCall_Start;
 import com.example.myapplication.Activities.videoCall_Start_waiting;
 import com.example.myapplication.Activities.voiceCall_End;
@@ -29,6 +30,7 @@ import com.squareup.picasso.Picasso;
 import org.linphone.core.Address;
 import org.linphone.core.CallParams;
 import org.linphone.core.Core;
+import org.linphone.core.tools.Log;
 
 import java.util.ArrayList;
 
@@ -80,7 +82,6 @@ public class userCallAdapter extends RecyclerView.Adapter<userCallAdapter.ItemHo
             itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-               // Toast.makeText(context,""+arrayList.get(getPosition()).getUserid(),Toast.LENGTH_SHORT).show();
 
                 }
             });

@@ -667,14 +667,12 @@ public class Chat1 extends AppCompatActivity {
         // transaction.addToBackStack(null);
         transaction.commit();
     }
-
+    // athang - mit26
     @Override
     public void onBackPressed() {
         super.onBackPressed();
-        finish();
-//        listUserChat listUserChat = new listUserChat();
-//        replaceFragment(listUserChat);
         LinphoneService.getCore().removeListener(mCoreListener);
+        finish();
     }
-
+    // athang - mit26
 }

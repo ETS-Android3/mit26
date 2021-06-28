@@ -12,7 +12,7 @@ import android.widget.Chronometer;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-
+import com.example.myapplication.Activities.MainActivity;
 import com.example.myapplication.R;
 import com.example.myapplication.Ultil.LinphoneService;
 import com.squareup.picasso.Picasso;
@@ -22,6 +22,8 @@ import org.linphone.core.Call;
 import org.linphone.core.Core;
 import org.linphone.core.CoreListenerStub;
 import org.linphone.core.ProxyConfig;
+import org.linphone.core.Reason;
+import org.linphone.core.tools.Log;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -34,7 +36,7 @@ public class voiceCall_Start extends AppCompatActivity {
 
     ImageView btn_reject, speaker;
     TextView txt_userName, txt_connecting;
-    String strUserName;
+    static boolean isBlocked;
     private CoreListenerStub mCoreListener;
     String avatar;
     ImageView img_avatar;
@@ -63,30 +65,35 @@ public class voiceCall_Start extends AppCompatActivity {
             @Override
             public void onCallStateChanged(Core core, Call call, Call.State state, String message) {
 
-
                 if (state == Call.State.Connected) {
                     speaker.setVisibility(View.VISIBLE);
                     time.setVisibility(View.VISIBLE);
                     manager.setSpeakerphoneOn(false);
                     startTimer();
                 }
+
                 if (state == Call.State.End || state == Call.State.Released) {
                     pauseTimer();
                     String callLength = time.getText().toString();
-
                     if (state == Call.State.Released) {
-
-                        Toast.makeText(getApplicationContext(), "Voice calls duration: " + callLength, Toast.LENGTH_LONG).show();
+                        // athang - mit26 blacklist invisible layout call 2 lan dau tien
+                        if (!isBlocked) Toast.makeText(getApplicationContext(), "Voice calls duration: " + callLength, Toast.LENGTH_SHORT).show(); // twice
                         LinphoneService.getCore().clearCallLogs();
                         LinphoneService.getCore().removeListener(mCoreListener);
-
                     }
-
                     finish();
 
+                    // Reset for next call
+                    isBlocked = false;
                 }
 
-
+                // When the user is blocked
+                if (state == Call.State.Error && message.equals("Forbidden - Call not allowed")) {
+                    pauseTimer();
+                    rejectVoiceCall();
+                    isBlocked = true;
+                    finish();
+                }
             }
         };
         btn_reject.setOnClickListener(new View.OnClickListener() {
@@ -110,9 +117,7 @@ public class voiceCall_Start extends AppCompatActivity {
 
                 // callLength
                 String callLength = time.getText().toString();
-                Toast.makeText(getApplicationContext(), "Voice calls duration: " + callLength, Toast.LENGTH_LONG).show();
-//                insertCallToDatabase insertCallToDatabase = new insertCallToDatabase();
-//                insertCallToDatabase.execute(idOfUserIsLoggingIn, userID, timeCreate, callLength, "0");
+                Toast.makeText(getApplicationContext(), "Voice calls duration: " + callLength, Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -133,9 +138,26 @@ public class voiceCall_Start extends AppCompatActivity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        LinphoneService.getCore().addListener(mCoreListener);
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         LinphoneService.getCore().addListener(mCoreListener);
+    }
+
+    protected void onPause() {
+        super.onPause();
+        LinphoneService.getCore().removeListener(mCoreListener);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        LinphoneService.getCore().removeListener(mCoreListener);
     }
 
     private void getInfor() {

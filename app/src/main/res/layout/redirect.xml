@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/rigister"
+    android:orientation="vertical"
+    tools:context=".Activities.Redirect"
+    android:id="@+id/redirectlayout"
+    android:weightSum="100">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="30">
+
+        <ImageButton
+            android:id="@+id/redirect_back"
+            android:layout_width="46dp"
+            android:layout_height="38dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginLeft="10dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/back"
+            android:padding="3dp"
+            android:scaleType="centerInside"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:text="REDIRECT"
+            android:layout_marginLeft="60dp"
+            android:textSize="36sp"
+            android:layout_marginStart="60dp" />
+    </LinearLayout>
+    <LinearLayout
+        android:layout_marginTop="20sp"
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="70"
+        android:gravity="top|center">
+
+        <EditText
+            android:layout_width="280dp"
+            android:layout_height="50dp"
+            android:layout_marginBottom="15dp"
+            android:background="@drawable/edit_white"
+            android:fontFamily="sans-serif-condensed"
+            android:gravity="center"
+            android:hint="Username"
+            android:id="@+id/redirectUsername"
+            android:textSize="20sp" />
+
+        <EditText
+            android:layout_width="280dp"
+            android:layout_height="50dp"
+            android:layout_marginBottom="15dp"
+            android:background="@drawable/edit_white"
+            android:fontFamily="sans-serif-condensed"
+            android:gravity="center"
+            android:hint="Domain"
+            android:text="bof-ims.dek.vn"
+            android:id="@+id/redirectDomain"
+            android:textSize="20sp" />
+
+        <ToggleButton
+            android:gravity="center"
+            android:hint="Confirm"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_marginBottom="15dp"
+            android:background="@drawable/edit_white"
+            android:fontFamily="sans-serif-condensed"
+            android:id="@+id/toggleRedirect"
+            android:textSize="20sp" />
+
+
+        <Button
+            android:layout_width="250dp"
+            android:layout_height="50dp"
+            android:background="@drawable/button"
+            android:fontFamily="sans-serif-condensed"
+            android:text="Done"
+            android:id="@+id/doneRedirect"
+            android:textSize="20sp" />
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,0 +1,1699 @@
+
+############################## IMPORTANT NOTE ###################################
+#[KHOA] before making any change. Make sure you read:
+#	Kamailio core cookbook: -> syntax of kamailio, how routing works
+#	Kamailio pseudovariable cookbook: -> some useful variables
+#	Kamailio transformation cookbook: -> get member of a structure
+
+# Make sure your changes (new behaviour ) is well written in Kamailio modules pages
+# IF you want to look deeper, try SER USER mailing list, they're useful resources
+
+#!KAMAILIO
+#
+# This config file implements the basic S-CSCF functionality
+#     - web: http://www.kamailio.org
+#     - git: http://sip-router.org
+#
+# Refer to the Core CookBook at http://www.kamailio.org/dokuwiki/doku.php
+# for an explanation of possible statements, functions and parameters.
+#
+# Direct your questions about this file to: <sr-users@lists.sip-router.org>.
+#
+# For more information about the various parameters, functions and statements
+# try http://sip-router.org/wiki/ .
+#
+
+####### Defined Values #########
+# *** Value defines - IDs used later in config
+
+# - flags
+#	FLT_ - per transaction (message) flags
+#	FLB_ - per branch flags
+
+#[KHOA] - uncomment MIT_26 First if you want any service
+# from MIT_26, if MIT_26 is defined and no feature is used,
+# Kamailio will fail to start
+# - uncomment MIT_26_SF for serial forking
+# - uncomment MIT_25_BL for blacklist
+# NOTE: enable one feature at a time, but you can easily mix these
+# features together to your need. I did mixed, but comment out because
+# we'are not required to mix faetures
+##!define MIT_26
+##!define MIT_26_SF
+##!define MIT_26_BL
+
+# [KHOA] while testing serial forking, if you don't have BOF, try defining MIT_26_BRIA,
+# FOr every register, restart kamailio to give new contact a Q value (which is hardcoded in
+# this configuration file
+##!define MIT_26_BRIA
+
+#!define FLT_CAPTURE 1
+#!define FLT_DIALOG 2
+
+#!define DLG_TIMEOUT_AVP "i:1"
+#!define RR_CUSTOM_USER_AVP "i:2"
+#!define DISPATCHER_DST_AVP "i:3"
+#!define DISPATCHER_GRP_AVP "i:4"
+#!define DISPATCHER_CNT_AVP "i:5"
+#!define DISPATCHER_SOCK_AVP "i:6"
+#!define LCR_RURI_AVP "i:7"
+#!define LCR_DOM_AVP "i:8"
+#!define PDB_CARRIER "i:9"
+#!define LCR_HOST "i:10"
+#!define AVP_BREAKOUT "i:11"
+
+####### Global Parameters #########
+
+include_file "scscf.cfg"
+
+#!ifdef WITH_DEBUG
+debug=5
+log_stderror=no
+sip_warning=yes
+#!else
+debug=0
+log_stderror=no
+sip_warning=no
+#!endif
+
+#!ifdef WITH_XMLRPC
+listen=tcp:192.168.122.40:6060
+#!endif
+
+rundir="/var/run/kamailio_scscf"
+
+alias=HOSTNAME
+
+user_agent_header="User-Agent: Kamailio S-CSCF"
+server_header="Server: Kamailio S-CSCF"
+
+/* comment the next line to enable the auto discovery of local aliases
+   based on reverse DNS on IPs (default on) */
+auto_aliases=no
+
+check_via=no    # (cmd. line: -v)
+dns=no          # (cmd. line: -r)
+rev_dns=no      # (cmd. line: -R)
+
+# Do SRV-Loadbalancing:
+dns_srv_lb=yes
+# Always: Also try IPv6:
+dns_try_ipv6=yes
+# Always prefer IPv6:
+dns_cache_flags=6
+# DNS-Based failover
+use_dns_failover = on
+# Query NAPTR-Records as well:
+dns_try_naptr=no
+
+#!ifdef WITH_XMLRPC
+#!ifndef WITH_TCP
+#!define WITH_TCP
+#!endif
+#!ifndef TCP_PROCESSES
+# Number of TCP Processes
+#!define TCP_PROCESSES 3
+#!endif
+#!endif
+
+#!ifdef WITH_TCP
+# life time of TCP connection when there is no traffic
+# - a bit higher than registration expires to cope with UA behind NAT
+tcp_connection_lifetime=3615
+#!ifdef TCP_PROCESSES
+tcp_children=TCP_PROCESSES
+#!endif
+#!else
+disable_tcp=yes
+#!endif
+
+children=12
+log_name="[Serving-CSCF]"
+
+system.shutdownmode = 0 desc "System shutdown mode"
+system.service = "Serving-CSCF" desc "Function of this server"
+
+# ------------------ module loading ----------------------------------
+mpath="/usr/lib64/kamailio/modules_k/:/usr/lib64/kamailio/modules/:/usr/lib/kamailio/modules_k/:/usr/lib/kamailio/modules/:/usr/local/kamailio-5.1/lib64/kamailio/modules"
+# (we try both the lib64 and the lib directory)
+
+loadmodule "sqlops.so"
+loadmodule "avp.so"
+loadmodule "tm.so"
+#loadmodule "seas.so"
+loadmodule "pv.so"
+loadmodule "corex.so"
+loadmodule "sl.so"
+loadmodule "rr.so"
+loadmodule "ims_dialog.so"
+loadmodule "textops.so"
+loadmodule "textopsx.so"
+loadmodule "maxfwd.so"
+loadmodule "xlog.so"
+loadmodule "sanity.so"
+loadmodule "siputils.so"
+loadmodule "kex.so"
+loadmodule "tmx.so"
+loadmodule "pike.so"
+#!ifdef DB_URL
+loadmodule "presence"
+#!endif
+loadmodule "xhttp"
+
+#!ifdef DB_URL
+loadmodule "db_mysql"
+#!ifdef DB_URL2
+loadmodule "db_cluster"
+#!endif
+
+#!ifdef WITH_LCR
+loadmodule "carrierroute"
+#!else
+loadmodule "dispatcher"
+#!endif
+
+loadmodule "enum"
+loadmodule "uac"
+# [KHOA] userblacklist module is not for block 1-way call
+# it blocks user from using any Kamailio service.
+# THe best usage is, block a contact that make spam calls. Stop it by a X-seconds penalty
+# Read "tm.so" and "userblacklist.so"
+loadmodule "userblacklist.so"
+
+modparam("userblacklist", "db_url", DB_URL)
+modparam("userblacklist", "match_mode", 128)
+
+modparam("sqlops", "sqlcon", "ca=>mysql://scscf:scscf@localhost/scscf");
+modparam("sqlops", "sqlres", "ra");
+
+# Control interfaces:
+loadmodule "ctl"
+loadmodule "cfg_rpc"
+#!ifdef WITH_XMLRPC
+loadmodule "xmlrpc"
+#!endif
+
+loadmodule "cdp.so"
+loadmodule "cdp_avp.so"
+
+loadmodule "ims_usrloc_scscf.so" 
+loadmodule "ims_registrar_scscf.so"
+loadmodule "ims_auth.so"
+loadmodule "ims_isc.so"
+
+#!ifdef WITH_RO
+loadmodule "ims_charging.so"
+#!endif
+
+#!ifdef CAPTURE_NODE
+loadmodule "siptrace.so"
+#!endif
+
+# ----------------- setting module-specific parameters ---------------
+
+# ----- ctl params -----
+modparam("ctl", "binrpc", "unix:/var/run/kamailio_scscf/kamailio_ctl")
+
+loadmodule "debugger.so"
+modparam("debugger", "mod_hash_size", 5)
+modparam("debugger", "mod_level_mode", 1)
+#!ifdef WITH_DEBUG
+modparam("debugger", "cfgtrace", 1)
+#!endif
+
+#!ifdef DB_URL2
+# ----- db_cluster params -----
+modparam("db_cluster", "connection", DB_URL)
+modparam("db_cluster", "connection", DB_URL2)
+modparam("db_cluster", "cluster", "cluster1=>con1=2s2s;con2=1s1s")
+#!endif
+
+# ----- presence params -----
+#!ifdef DB_URL
+#!ifdef DB_URL2
+modparam("presence", "db_url", "cluster://cluster1")
+#!else
+modparam("presence", "db_url", DB_URL)
+#!endif
+#modparam("presence", "fallback2db", 1)
+modparam("presence", "db_update_period", 20)
+#!endif
+
+
+
+################################################seas
+
+
+
+##modparam("seas", "listen_sockets","192.168.122.40:5099")
+
+
+
+
+
+
+
+####################################################
+
+
+
+
+
+
+
+
+
+
+# ----- tm params -----
+# auto-discard branches from previous serial forking leg
+modparam("tm", "failure_reply_mode", 3)
+# default retransmission timeout: 10sec
+modparam("tm", "fr_timer", 10000)
+# default invite retransmission timeout after 1xx: 120sec
+modparam("tm", "fr_inv_timer", 15000)
+modparam("tm", "max_inv_lifetime", 180000)
+# Don't reply automatically with "100 Trying"
+modparam("tm", "auto_inv_100", 0)
+# Increase Timer1 to avoid retransmissions
+modparam("tm", "retr_timer1", 2500)
+modparam("tm", "contacts_avp", "tm_contacts")
+modparam("tm", "contact_flows_avp", "tm_contact_flows")
+
+# ----- rr params -----
+# add value to ;lr param to cope with most of the UAs
+modparam("rr", "enable_full_lr", 1)
+# append from tag to the RR
+modparam("rr", "append_fromtag", 1)
+# add a Username to RR-Header
+modparam("rr", "add_username", 1)
+# Take User from a custom AVP
+modparam("rr", "custom_user_avp", "$avp(RR_CUSTOM_USER_AVP)")
+
+# -- usrloc params --
+# [KHOA] you dont need "usrloc.so" module, "ims_usrloc_scscf.so"
+# is already have all the "usrloc.so" features
+modparam("ims_usrloc_scscf", "enable_debug_file", 0)
+modparam("ims_usrloc_scscf", "matching_mode", 0)
+modparam("ims_registrar_scscf", "error_reply_code", 503)
+modparam("ims_registrar_scscf", "max_contacts", 3);
+modparam("ims_usrloc_scscf", "maxcontact_behaviour", 2) 
+modparam("ims_usrloc_scscf", "db_mode", 1)
+#modparam("tm|usrloc", "xavp_contact", "tm_contacts")
+
+#overwrite
+#!ifdef DB_URL
+#!ifdef DB_URL2
+modparam("ims_usrloc_scscf", "db_url", "cluster://cluster1")
+#!else
+modparam("ims_usrloc_scscf", "db_url", DB_URL)
+#!endif
+#modparam("ims_usrloc_scscf", "db_mode", 1)
+#!endif
+
+modparam("ims_registrar_scscf", "subscription_default_expires", 180)
+modparam("ims_registrar_scscf", "subscription_min_expires", 180)
+modparam("ims_registrar_scscf", "subscription_max_expires", 420)
+
+# -- CDP params --
+modparam("cdp","config_file","/usr/local/etc/kamailio_scscf/scscf.xml")
+
+# -- ims_dialog params --
+modparam("ims_dialog", "dlg_flag", FLT_DIALOG)
+modparam("ims_dialog", "timeout_avp", "$avp(DLG_TIMEOUT_AVP)")
+modparam("ims_dialog", "detect_spirals", 0)
+modparam("ims_dialog", "profiles_no_value", "orig ; term")
+#!ifdef DB_URL
+#!ifdef DB_URL2
+modparam("ims_dialog", "db_url", "cluster://cluster1")
+#!else
+modparam("ims_dialog", "db_url", DB_URL)
+#!endif
+modparam("ims_dialog", "db_update_period", 120);
+#modparam("ims_dialog", "db_mode", 2)
+#!else
+
+#modparam("ims_dialog", "db_mode", 0)
+#!endif
+ 
+#!ifdef WITH_XMLRPC
+# ----- xmlrpc params -----
+modparam("xmlrpc", "route", "XMLRPC");
+modparam("xmlrpc", "url_match", "^/RPC")
+#!endif
+
+#!ifdef CAPTURE_NODE
+# Destination, where to send the traffic
+modparam("siptrace", "duplicate_uri", CAPTURE_NODE)
+# Trace all traffic
+modparam("siptrace", "trace_on", 1)
+modparam("siptrace", "trace_to_database", 0)
+modparam("siptrace", "trace_flag", FLT_CAPTURE)
+modparam("siptrace", "hep_mode_on", 1)
+#!endif
+
+# -- ims_auth params --
+modparam("ims_auth", "name", URI)
+modparam("ims_auth", "registration_default_algorithm", REG_AUTH_DEFAULT_ALG)
+#!ifdef CXDX_FORCED_PEER
+modparam("ims_auth", "cxdx_forced_peer", CXDX_FORCED_PEER)
+#!endif
+modparam("ims_auth", "cxdx_dest_realm", NETWORKNAME)
+modparam("ims_auth", "av_check_only_impu", 1)
+
+modparam("ims_auth", "auth_data_timeout", 5)
+modparam("ims_auth","auth_used_vector_timeout", 300)
+
+# -- ims_registrar_scscf params --
+#!ifdef WITH_DEBUG
+modparam("ims_registrar_scscf", "default_expires", 604800)
+modparam("ims_registrar_scscf", "min_expires", 60)
+modparam("ims_registrar_scscf", "max_expires", 604800)
+#!else
+modparam("ims_registrar_scscf", "default_expires",  604800)
+modparam("ims_registrar_scscf", "min_expires", 60)
+modparam("ims_registrar_scscf", "max_expires",  604800)
+#!endif
+modparam("ims_registrar_scscf", "use_path", 1)
+modparam("ims_registrar_scscf", "support_wildcardPSI",1)
+#modparam("ims_registrar_scscf", "user_data_xsd","/usr/local/etc/kamailio_scscf/CxDataType_Rel7.xsd")
+modparam("ims_registrar_scscf", "scscf_name", URI)
+modparam("ims_registrar_scscf", "cxdx_dest_realm", NETWORKNAME)
+
+#!ifdef WITH_MULTIDOMAIN
+#!ifdef DB_URL
+loadmodule "domain"
+# ----- domain params -----
+#!ifdef DB_URL2
+modparam("domain", "db_url", "cluster://cluster1")
+#!else
+modparam("domain", "db_url", DB_URL)
+#!endif
+#!endif
+#!endif
+
+
+
+
+
+
+
+
+
+####################################################################thanh seas module
+
+
+#modparam("seas", "listen_sockets","192.168.122.40:5090")
+
+
+
+
+##########################################################################
+
+
+
+
+
+
+
+
+
+
+# ----- ims_isc params -----
+modparam("ims_isc", "my_uri", HOSTNAME)
+modparam("ims_isc", "add_p_served_user", 1)
+
+#!ifdef WITH_RO
+# ----- ims_diameter_ro params -----
+#!ifdef DB_URL
+#!ifdef DB_URL2
+#modparam("ims_charging", "db_url", "cluster://cluster1")
+#!else
+#modparam("ims_charging", "db_url", DB_URL)
+#!endif
+#modparam("ims_charging", "db_mode", 1)
+#!endif
+modparam("ims_charging", "origin_host", HOSTNAME);
+modparam("ims_charging", "origin_realm", NETWORKNAME);
+#!ifdef RO_FORCED_PEER
+modparam("ims_charging", "ro_forced_peer", RO_FORCED_PEER);
+#!endif
+modparam("ims_charging", "destination_host", RO_DESTINATION);
+modparam("ims_charging", "destination_realm", NETWORKNAME);
+
+modparam("ims_charging","service_context_id_root", RO_ROOT);
+modparam("ims_charging","service_context_id_ext", RO_EXT);
+modparam("ims_charging","service_context_id_mnc", RO_MNC);
+modparam("ims_charging","service_context_id_mcc", RO_MCC);
+modparam("ims_charging","service_context_id_release", RO_RELEASE);
+
+modparam("ims_charging","interim_update_credits",30);
+modparam("ims_charging","timer_buffer",5);
+#!endif
+
+# ----- enum params -----
+modparam("enum", "domain_suffix", ENUM_SUFFIX)
+
+# ----- sanity params -----
+modparam("sanity", "autodrop", 0)
+
+#!ifdef WITH_LCR
+# ----------------- Settings for Carrier-Route ---------------
+#!ifdef DB_URL2
+modparam("carrierroute", "db_url", "cluster://cluster1")
+#!else
+modparam("carrierroute", "db_url", DB_URL)
+#!endif
+modparam("carrierroute", "config_source", "db")
+modparam("carrierroute", "match_mode", 10)
+
+#!else
+
+# ----------------- Settings for Dispatcher ---------------
+modparam("dispatcher", "list_file", "/usr/local/etc/kamailio_scscf/dispatcher.list")
+# Dispatcher: Enable Failover-Support
+modparam("dispatcher", "flags", 2)
+# Dispatcher: Overwrite Destination address, if required.
+modparam("dispatcher", "force_dst", 1)
+# AVP's required for Fail-Over-Support:
+modparam("dispatcher", "dst_avp", "$avp(DISPATCHER_DST_AVP)")
+modparam("dispatcher", "grp_avp", "$avp(DISPATCHER_GRP_AVP)")
+modparam("dispatcher", "cnt_avp", "$avp(DISPATCHER_CNT_AVP)")
+modparam("dispatcher", "sock_avp", "$avp(DISPATCHER_SOCK_AVP)")
+
+# Try to recover disabled destinations every 15 seconds.
+modparam("dispatcher", "ds_ping_interval", 15)
+# Actively query the gateways:
+modparam("dispatcher", "ds_probing_mode", 1)
+modparam("dispatcher", "ds_ping_reply_codes", "class=2;code=404;code=480")
+#!endif
+
+# ----- jsonrpcs params -----
+loadmodule "jsonrpcs"
+modparam("jsonrpcs", "transport", 1)
+
+####### Routing Logic ########
+# Main SIP request routing logic
+# - processing of any incoming SIP request starts with this route
+
+
+
+
+
+
+route {
+#!ifdef WITH_DEBUG
+	xlog("$rm $ru ($fu ($si:$sp to $fu), $ci)\n");
+#!endif
+
+	# per request initial checks
+	route(REQINIT);
+
+	# Handle Registrations:
+	if (is_method("REGISTER")) {
+		route(REGISTER);
+		exit;
+	}
+
+	# we need to support subscription to reg event
+        if (is_method("SUBSCRIBE") && search("^(Event|o)([ \t]*):([ \t]*)reg")) {
+		route(SUBSCRIBE);
+		break;
+        }
+
+	if (is_method("PUBLISH") && search("^(Event|o)([ \t]*):([ \t]*)reg")) {
+                route(PUBLISH);
+                break;
+        }
+	
+	#Set DLG flag to track dialogs using dialog2
+	if (!is_method("REGISTER|SUBSCRIBE"))
+		setflag(FLT_DIALOG);
+
+	# Evaluate Route-Header and set $route_uri
+	loose_route();
+
+	if (is_method("CANCEL|ACK")) {
+		t_relay();
+		exit;
+	}
+
+	# Remove any existing P-Served-User header:
+	remove_hf("P-Served-User");
+
+	if (($route_uri =~ "sip:orig@.*") || isc_from_as("orig")) {
+		# we need something like this to assign SCSCF to unregistered user for services
+		# support for AS origination on behalf of unregistered useri
+		# can use the registrar is_registered methods - must see if we need to check orig or term?
+
+		# Originating
+		route(orig);
+    		break;                          
+	} else {
+		isc_from_as("term");
+		if ($retcode == -2) {
+			# Treat as originating, since it was retargeted:
+			route(orig);
+	    		break;                          
+		}
+		if ((is_in_profile("orig") || has_totag()) && ($route_uri =~ "sip:mo@"+".*")) {
+			route(orig_subsequent);
+			break;
+		}
+		if ((is_in_profile("term") || has_totag()) && ($route_uri =~ "sip:mt@"+".*")) {
+			route(term_subsequent);
+			break;
+		}
+
+		# Terminating
+		if ((uri == myself) || is_uri_host_local() || uri =~ "tel:.*") {
+			if (!term_impu_registered("location")) {
+				xlog("L_DBG", "We need to do an UNREG server SAR assignemnt");
+                                assign_server_unreg("UNREG_SAR_REPLY", "location", "term");
+                                exit;
+		        }
+		} else {
+			sl_send_reply("403","Forbidden - Domain not served");
+			exit();
+		}
+		$var(termunreg) = 0;
+		route(term);
+		break;
+	}
+}
+
+route[UNREG_SAR_REPLY]
+{
+        xlog("L_DBG","saa_return code is $avp(s:saa_return_code)\n");
+        switch ($avp(s:saa_return_code)){
+            case 1: #success
+                    xlog("L_DBG", "SAR success - will route message\n");
+		$var(termunreg) = 1;
+                route(term);
+                break;
+            case -1: #failure
+                    xlog("L_ERR", "SAR failure - error response sent from module\n");
+                break;
+            case -2: #error
+		send_reply("403", "SAR failed");
+                xlog("L_ERR", "SAR error - no error response sent from module\n");
+                break;
+            default:
+                    xlog("L_ERR", "Unknown return code from SAR, value is [$avp(s:saa_return_code)]\n");
+                break;
+        }
+        exit;
+}
+
+
+######################################################################
+# Helper routes (Basic-Checks, NAT-Handling/RTP-Control, XML-RPC)
+######################################################################
+# Per SIP request initial checks
+route[REQINIT] {
+	$var(used) = 1 - ($stat(free_size) / $stat(total_size));
+	xlog("L_DBG", "Mem: Total $stat(total_size), Free $stat(free_size) [$var(used)% used]\n");
+	if ($var(used) > 95) {
+		send_reply("503", "Server overloaded");
+		exit;
+	}
+
+	# Trace this message
+#!ifdef CAPTURE_NODE
+	sip_trace();	
+	setflag(FLT_CAPTURE);
+#!endif
+
+	if (!mf_process_maxfwd_header("10")) {
+		sl_send_reply("483","Too Many Hops");
+		exit;
+	}
+
+	if(!sanity_check("1511", "7")) {
+		xlog("Malformed SIP message from $si:$sp\n");
+		exit;
+	}
+
+	# Check for shutdown mode:
+	if (!has_totag() && ($sel(cfg_get.system.shutdownmode) > 0)) {
+		send_reply("503", "Server shutting down");
+		exit;
+	}
+
+	# Check for Cx/Dx Connection:
+	if(!cdp_has_app("16777216")) {
+		send_reply("503", "Cx/Dx Interface not ready");
+		exit;
+	}
+
+#!ifdef WITH_RO
+	# Check, if Charging-Server is connected:
+	if(!cdp_has_app("10415", "4")) {
+	        send_reply("503", "Charging Server not ready");
+	        exit;
+	}
+#!endif
+
+	# Reply to OPTIONS:
+	if (is_method("OPTIONS") && ((uri == myself) || is_uri_host_local())) {
+		options_reply();
+		exit;
+	}	
+	
+	# Ignore Re-Transmits:
+	if (!is_method("CANCEL|ACK") && t_lookup_request()) {
+		xlog("Re-Transmit: $rm ($fu ($si:$sp) to $tu, $ci)\n");
+		t_retransmit_reply();
+		exit;
+	}
+
+	if (is_method("INVITE|REGISTER")) {
+		send_reply("100", "Trying");
+	}
+
+# MIT26 BLACKLIST [KHOA] I saved caller's IMPU here for later use,
+# This is not how it should be implement, but no time
+# because Some time $ai is <null> down the request route
+	if (is_method("INVITE")) {
+		$avp(sender) = $(ai{uri.user});
+		if ($avp(sender) == $null) {
+			$avp(sender) = $fU;
+		}
+		xlog("L_ERR", "sender $avp(sender)");
+	}
+
+	remove_hf("P-Served-User");
+}
+
+
+######################################################################
+# Publish route
+######################################################################
+route[PUBLISH]
+{
+	if (!t_newtran()) {
+		#absorb retransmissions
+		sl_reply("503","Could not create transaction");
+		exit;
+	}
+
+	if (can_publish_reg("location")) {
+		$var(ret)= publish_reg("location");        
+		switch ($var(ret)){
+			case 1: #success
+				xlog("L_DBG", "Publish reg successful");
+				break;
+			case -1: #failure
+				xlog("L_ERR", "Publish reg failure - sending 500 Error now\n");
+				t_reply("500","Server Error publishing subscription");
+				break;
+			default:
+				xlog("L_ERR", "Unknown return code from publish reg event alue is [$var(ret)]\n");
+				break;
+		}
+	} else {
+		t_reply("403","Forbidden to PUBLISH");
+		exit;
+	}
+}
+
+######################################################################
+# Subscribe route
+######################################################################
+route[SUBSCRIBE]
+{
+        if (!t_newtran()) {    
+                #absorb retransmissions
+                sl_reply("503","Could not create transaction");
+                exit;
+        }
+
+        if (!has_totag()) {
+                xlog("L_DBG", "This is an initial SUBSCRIBE\n");
+                if (!term_impu_registered("location")) {
+                        xlog("L_DBG", "We need to do an UNREG server SAR assignment\n");
+                        assign_server_unreg("SUBSCRIBE_UNREG_SAR_REPLY", "location", "term");
+                        exit;
+                }
+                if (!can_subscribe_to_reg("location")){
+                        t_reply("403","Forbidden to SUBSCRIBE");
+                        exit;
+                }
+        }else{
+                xlog("L_DBG", "This is a subsequent SUBSCRIBE\n");      
+        }
+
+        $var(ret)= subscribe_to_reg("location");        
+        switch ($var(ret)){
+		case 1: #success
+		        xlog("L_DBG", "Subscribe to reg successful");
+		        break;
+		case -1: #failure
+		        xlog("L_ERR", "Subscribe to reg failure - sending 500 Error now\n");
+		        t_reply("500","Server Error saving subscription");
+		        break;
+		case -2: #error
+		        xlog("L_ERR", "Subscribe to reg error sending notify - 200 OK so subscription already sent\n");
+		        break;
+		default:
+		        xlog("L_ERR", "Unknown return code from subscribe to reg event alue is [$var(ret)]\n");
+		        break;
+        }
+}
+
+route[SUBSCRIBE_UNREG_SAR_REPLY]
+{
+        
+        xlog("L_DBG","saa_return code is $avp(s:saa_return_code)\n");
+        switch ($avp(s:saa_return_code)){
+                case 1: #success
+                        xlog("L_DBG", "SAR success - will process subscribe\n");
+                        if (can_subscribe_to_reg("location")){
+                                $var(ret)= subscribe_to_reg("location");        
+                                switch ($var(ret)){
+                                case 1: #success
+                                        xlog("L_DBG", "Subscribe to reg successful");
+                                        break;
+                                case -1: #failure
+                                        xlog("L_ERR", "Subscribe to reg failure - sending 500 Error now\n");
+                                        t_reply("500","Server Error saving subscription");
+                                        break;
+                                case -2: #error
+                                        xlog("L_ERR", "Subscribe to reg error sending notify - 200 OK so subscription already sent\n");
+                                        break;
+                                default:
+                                        xlog("L_ERR", "Unknown return code from subscribe to reg event alue is [$var(ret)]\n");
+                                        break;
+                                }
+                        }else{
+                                t_reply("403","Forbidden to SUBSCRIBE");
+                                exit;
+                        }
+                        break;
+                case -1: #failure
+                        xlog("L_ERR", "SAR failure - Sending 403 Forbidden\n");
+                        t_reply("403","Forbidden to SUBSCRIBE");
+                        break;
+                case -2: #error
+                        xlog("L_ERR", "SAR error - Sending 403 Forbidden\n");
+                        t_reply("403","Forbidden to SUBSCRIBE");
+                        break;
+                default:
+                        xlog("L_ERR", "Unknown return code from SAR, value is [$avp(s:saa_return_code)] - sending 403 Forbidden\n");
+                        t_reply("403","Forbidden to SUBSCRIBE");
+                        break;
+        }
+        exit;
+}
+
+######################################################################
+# XMLRPC routing
+######################################################################
+event_route[xhttp:request] {
+	if ((method=="POST" || method=="GET")
+&& ((src_ip == 127.0.0.1)
+#!ifdef XMLRPC_WHITELIST_1
+ || (src_ip == XMLRPC_WHITELIST_1)
+#!endif
+#!ifdef XMLRPC_WHITELIST_2
+ || (src_ip == XMLRPC_WHITELIST_2)
+#!endif
+#!ifdef XMLRPC_WHITELIST_3
+ || (src_ip == XMLRPC_WHITELIST_3)
+#!endif
+)
+) {
+		if ($hu =~ "^/JSONRPC") {
+			jsonrpc_dispatch();
+		} else {
+			# close connection only for xmlrpclib user agents (there is a bug in
+			# xmlrpclib: it waits for EOF before interpreting the response).
+			if ($hdr(User-Agent) =~ "xmlrpclib")
+				set_reply_close();
+			set_reply_no_connect();
+			dispatch_rpc();
+		}
+		exit;
+	}
+
+        xhttp_reply("404", "Not found", "", "");
+}
+
+######################################################################
+# Route for handling Registrations:
+######################################################################
+route[REGISTER] {
+#!ifdef MIT_26_BRIA
+	
+	$var(newct) = $ct + ";q=0.2";
+	remove_hf("Contact");
+	append_hf("Contact: $(var(newct))rn");
+#!endif
+        xlog("L_DBG", "ALGORITHM IS [$aa] and User-Agent is [$ua]\n");
+        $var(alg) = $aa;
+        if ($aa == $null) {
+                $var(alg) = "MD5";      #force to MD5 for zoiper.... non-ims
+        }
+	if ($expires(max)<66 && $expires(min)!=0) {
+		send_reply("423", "Interval too brief");
+		exit;
+
+	}
+
+
+	xlog("L_ERR", "DE-REGISTER $(sel(contact.expires)) $hdr(Expires) $hdr(Contact) $ru $ruid\n");
+
+
+# [KHOA] if you were asked to disable authentication, comment out the if(!ism....) block
+
+#!ifdef WITH_AUTH
+
+	if (!ims_www_authenticate("$td")) {
+#!else
+	if (($var(alg) == "MD5") && (!ims_www_authenticate("$td"))) {
+#!endif       
+		if ($? == -2) {
+                        send_reply("403", "Authentication Failed");
+                        exit;
+                } else if ($? == -3) {
+                        send_reply("400", "Bad Request");
+                        exit;
+                } else if ($? == -9) {
+                        xlog("L_DBG", "Authentication re-sync requested\n");
+                        ims_www_resync_auth("REG_RESYNC_REPLY", "$td");
+                        exit;
+                } else {
+                        #user has not been authenticated. Lets send a challenge via 401 Unauthorized
+                        xlog("L_DBG","About to challenge! auth_ims\n");
+                        ims_www_challenge("REG_MAR_REPLY", "$td", "$var(alg)");
+                        exit;
+               }
+	} else {
+		#xlog("L_DBG", "Auth succeeded\n"); 
+		# We need to check if this user is registered or not
+		if (!impu_registered("location")) {
+			save("PRE_REG_SAR_REPLY","location");
+			exit;
+		} else {
+			isc_match_filter_reg("1","location");
+                        save("REG_SAR_REPLY","location");
+			exit;
+		}
+		#if ($hdr(Expires) == "0") {
+		#	unregister("location");
+		#}
+	}
+}
+
+route[REG_MAR_REPLY]
+{
+     #this is async so to know status we have to check the reply avp
+     xlog("L_DBG","maa_return code is $avp(s:maa_return_code)\n");
+     switch ($avp(s:maa_return_code)){
+             case 1: #success
+                     xlog("L_DBG", "MAR success - 401/407 response sent from module\n");
+                     break;
+             case -1: #failure
+                     xlog("L_ERR", "MAR failure - error response sent from module\n");
+                     break;
+             case -2: #error
+                     xlog("L_ERR", "MAR error - sending error response now\n");
+                     send_reply("503", "MAR failed");
+                     break;
+             default:
+                     xlog("L_ERR", "Unknown return code from MAR, value is [$avp(s:maa_return_code)]\n");
+                     send_reply("503", "Unknown response code from MAR");
+                     break;
+     }
+     exit;
+}
+
+route[PRE_REG_SAR_REPLY]
+{
+    xlog("L_DBG","saa_return code is $avp(s:saa_return_code)\n");
+        #this is async so to know status we have to check the reply avp
+    xlog("L_DBG","saa_return code (for scscf_save on register) is $avp(s:saa_return_code)\n");
+    switch ($avp(s:saa_return_code)){
+            case 1: #success
+                   xlog("L_DBG", "SAR success - 200 response sent from module\n");
+                    isc_match_filter_reg("0","location");
+                    exit;
+            case -1: #failure
+                    xlog("L_ERR", "SAR failure - error response sent from module\n");
+                    break;
+            case -2: #error
+                    xlog("L_ERR", "SAR error - error response sent from module\n");
+                    break;
+            default:
+                    xlog("L_ERR", "Unknown return code from SAR, value is [$avp(s:saa_return_code)]\n");
+                    break;
+    }
+    exit;
+}
+
+route[REG_SAR_REPLY]
+{
+    xlog("L_DBG","saa_return code is $avp(s:saa_return_code)\n");
+    #this is async so to know status we have to check the reply avp
+    xlog("L_DBG","saa_return code (for scscf_save on register) is $avp(s:saa_return_code)\n");
+    switch ($avp(s:saa_return_code)){
+            case 1: #success
+                   xlog("L_DBG", "SAR success - 200 response sent from module\n");
+                    exit;
+            case -1: #failure
+                    xlog("L_ERR", "SAR failure - error response sent from module\n");
+                    break;
+            case -2: #error
+                    xlog("L_ERR", "SAR error - error response sent from module\n");
+                    break;
+            default:
+                    xlog("L_ERR", "Unknown return code from SAR, value is [$avp(s:saa_return_code)]\n");
+                    break;
+    }
+    exit;
+}
+
+route[REG_RESYNC_REPLY]
+{
+     ims_www_challenge("REG_MAR_REPLY", "$td");
+}
+
+######################################################################
+# Apply privacy, if requested
+######################################################################
+route[apply_privacy]
+{
+	if (is_present_hf("Privacy") && ($hdr(Privacy)=="id")) {
+		remove_hf("P-Asserted-Identity");
+	}
+}
+
+######################################################################
+# Originating, Intial Requests
+######################################################################
+route[orig]
+{
+
+	$avp(AVP_BREAKOUT) = 0;
+#!ifdef FORWARD_TO_BREAKOUT
+	if ($rU =~ "breakout.*") {
+		$avp(AVP_BREAKOUT) = 1;
+		append_hf("X-Breakout: Yes\r\n");
+		strip(8);
+	}
+#!endif
+	xlog("L_ERR", "ROUTE ORIG 1\n");
+	if (is_method("INVITE|SUBSCRIBE|MESSAGE")) {
+		remove_hf("P-Called-Party");
+		# Append a P-Called-Party Header:
+		append_hf("P-Called-Party: <$ru>\r\n");
+	}
+
+	xlog("L_DBG","Enter orig route\n");
+	xlog("L_ERR", "ROUTE ORIG 2\n");
+	set_dlg_profile("orig");
+
+	# we MAYBE need something like this to check if a user is barred
+	# if (S_originating_barred()){
+		# sl_send_reply("403","Forbidden - Originating Public Identity barred");
+		# exit;
+	# }
+
+	if (is_method("INVITE|SUBSCRIBE|MESSAGE")) {
+		$avp(RR_CUSTOM_USER_AVP)="mo";
+        	record_route();    
+	}
+	xlog("L_ERR", "ROUTE ORIG 3\n");
+	
+	# Start new transaction:
+        if (!t_newtran()) {    
+                #absorb retransmissions
+                sl_reply("503","Could not create transaction");
+                exit;
+        }
+
+	xlog("L_ERR", "ROUTE ORIG 4\n");
+	# check if dialog saved as fwded to AS
+	if (isc_match_filter("orig", "location")) {
+		t_on_failure("isc_orig_failure");       
+		xlog("L_DBG", "Orig - msg was fwded to AS\n");
+		exit;
+	}
+	xlog("L_ERR", "ROUTE ORIG 5\n");
+
+	if (!isc_from_as("orig")) {
+		remove_hf("P-Asserted-Identity");
+		append_hf("P-Asserted-Identity: <sip:$fU@$fd>\r\n");
+	}
+############################################################################################thanh
+
+#!ifdef WITH_RO
+	# before we allow call - lets check credit
+	if (is_method("INVITE")) {
+		xlog("L_DBG","Sending initial CCR Request for call\n");
+		$var(cc_ret) = Ro_CCR("CHARGING_CCR_ORIG_REPLY", "orig", 30, "0", "0");
+		if ($var(cc_ret) < 0) {
+			xlog("L_ERR","CCR Request failure\n");
+			sl_send_reply("402","Payment required");
+			exit;
+		}
+		xlog("L_DBG","CCR Request success\n");    
+		exit;
+	}
+#!endif
+	xlog("L_ERR", "ROUTE ORIG 6\n");
+
+
+
+
+# [KHOA] The message will go this route if MIT_26 features are enable
+#!ifdef MIT_26
+	if(is_method("INVITE")){		
+
+#!ifdef MIT_26_SF
+		route(SERIAL_FORKING);
+		exit;
+#!endif
+
+#!ifdef MIT_26_BL
+		xlog("L_ERR", "KHOA IN IFDEF\n");
+	route(BLACKLISTING);
+	
+#!endif
+ 
+	}
+#!endif
+  
+	route(FINAL_ORIG);
+}
+
+route[FINAL_ORIG]
+{
+       # Check for PSTN destinations:
+        if (is_method("INVITE")) {
+                route(PSTN_handling);
+		
+        }		
+
+
+        t_on_reply("orig_reply");
+
+        t_relay();
+}
+
+route[CHARGING_CCR_ORIG_REPLY]
+{
+        xlog("L_DBG","cca_return_code code is $avp(s:cca_return_code)\n");
+
+        switch ($avp(s:cca_return_code)){
+            case 1: #success
+                xlog("L_DBG", "CCR success - will route message\n");
+		route(FINAL_ORIG);
+                break;
+            case -1: #failure
+                xlog("L_ERR", "CCR failure - error response sent from module\n");
+		switch ($avp(s:cca_result_code)){
+			case 5030:
+				send_reply("403", "Charging User not found");
+		                break;
+			case 5031:
+				send_reply("403", "Rating failed");
+		                break;
+			case 4010:
+				send_reply("402", "Payment required - Unsufficient funds");
+		                break;
+			case 5006:
+				send_reply("486", "Line limit exceeded");
+		                break;
+			default:
+				send_reply("402","Payment required ($avp(s:cca_result_code))");
+		                break;
+		}
+            case -2: #error
+                xlog("L_ERR", "CCR error - error response sent from module\n");
+		send_reply("503", "Charging Error");
+                break;
+            default:
+                xlog("L_ERR", "Unknown return code from CCR: [$avp(s:cca_return_code)] \n");
+		send_reply("503", "Charging Error");
+                break;
+        }
+        exit;
+}
+
+
+######################################################################
+# Replies to the Initial Requests
+######################################################################
+onreply_route[orig_reply]
+{
+	xlog("L_DBG","Orig reply\n");
+
+	route(apply_privacy);
+	break;
+}
+
+######################################################################
+# Originating, subsequent requests
+######################################################################
+route[orig_subsequent]
+{
+	xlog("L_DBG","Orig_Subsequent\n");
+	
+	if (!is_method("ACK")) {
+		t_on_reply("orig_subsequent_reply");
+	}
+	t_relay();
+}
+
+######################################################################
+# Replies for originating, subsequent requests
+######################################################################
+onreply_route[orig_subsequent_reply]
+{
+	xlog("L_DBG","Orig_Subsequent_reply\n");
+	route(apply_privacy);
+	break;
+}
+
+######################################################################
+# Failure-Route for Requests to an AS
+######################################################################
+failure_route[isc_orig_failure]
+{
+	xlog("L_DBG","ISC_Orig_failure\n");     
+
+	if (t_check_status("(408)|(5..)")){
+		t_on_failure("isc_orig_failure");   
+		if (isc_match_filter("orig","location")){
+			xlog("L_DBG","ISC_Orig_failure - msg was fwded to AS\n");
+			exit;
+		}
+
+		if (isc_from_as("origfail")) {
+			remove_hf("P-Asserted-Identity");
+			append_hf("P-Asserted-Identity: <sip:$fU@$fd>\r\n");
+		}
+
+		t_on_reply("orig_reply");
+
+		t_relay();
+	}
+}
+
+######################################################################
+# Terminating requests
+######################################################################
+route[term]
+{
+	xlog("L_DBG","Term\n");
+
+	set_dlg_profile("term");
+
+	#we need something like this to check if a user is barred
+	# if (S_terminating_barred()){
+		# sl_send_reply("404","Not Found - Terminating user barred");
+		# exit;
+	# }
+
+	if (is_method("INVITE|SUBSCRIBE|MESSAGE")) {
+		$avp(RR_CUSTOM_USER_AVP)="mt";
+		$avp(i:20)="mt";
+		record_route();    
+	}
+
+	# Start new transaction:
+        if ($var(termunreg) == 0) {
+		if (!t_newtran()) {    
+		        #absorb retransmissions
+		        sl_reply("503","Could not create transaction");
+		        exit;
+		}
+        }
+
+	# check if dialog saved as fwded to AS
+	if (isc_match_filter("term","location")){
+		t_on_failure("isc_term_failure");
+		xlog("L_DBG","Term - msg was fwded to AS\n");
+		exit;
+	}
+
+#!ifdef WITH_RO_TERM
+	# before we allow call - lets check credit
+	if (is_method("INVITE")) {
+		xlog("L_DBG","Sending initial CCR Request for call\n");
+		$var(cc_ret) = Ro_CCR("CHARGING_CCR_TERM_REPLY", "term", 30, "0", "0");
+		if ($var(cc_ret) < 0) {
+			xlog("L_ERR","CCR Request failure\n");
+			sl_send_reply("480","Temporarily unavailable");
+			exit;
+		}
+		xlog("L_DBG","CCR Request success\n");    
+		exit;
+	}
+#!endif
+	xlog("L_ERR", "TERM $ru");
+	route(FINAL_TERM);
+}
+
+route[FINAL_TERM] {
+	if (lookup("location")) {
+		if ((uri == myself) || is_uri_host_local()) {
+			t_reply("404","Not Found - destination user not found on this S-CSCF");
+			exit;
+		}
+	} else {
+		# User not registered? Reply with 404.
+		t_reply("404","Not Found - destination user not found on this S-CSCF");
+		exit;
+	}
+	route(apply_privacy);
+
+	if (!t_relay()) {
+		t_reply("404","Not Found - Unable to reach Proxy-CSCF");		
+	}
+}
+
+
+route[CHARGING_CCR_TERM_REPLY]
+{
+        xlog("L_DBG","cca_return_code code is $avp(s:cca_return_code)\n");
+
+        switch ($avp(s:cca_return_code)){
+            case 1: #success
+                xlog("L_DBG", "CCR success - will route message\n");
+		route(FINAL_TERM);
+                break;
+            case -1: #failure
+                xlog("L_ERR", "CCR failure - error response sent from module\n");
+		switch ($avp(s:cca_result_code)){
+			case 5030:
+				send_reply("403", "Charging User not found");
+		                break;
+			case 5031:
+				send_reply("403", "Rating failed");
+		                break;
+			case 4010:
+				send_reply("402", "Payment required - Unsufficient funds");
+		                break;
+			case 5006:
+				send_reply("486", "Line limit exceeded");
+		                break;
+			default:
+				send_reply("402","Payment required ($avp(s:cca_result_code))");
+		                break;
+		}
+            case -2: #error
+                xlog("L_ERR", "CCR error - error response sent from module\n");
+		send_reply("503", "Charging Error");
+                break;
+            default:
+                xlog("L_ERR", "Unknown return code from CCR: [$avp(s:cca_return_code)] \n");
+		send_reply("503", "Charging Error");
+                break;
+        }
+        exit;
+}
+
+
+######################################################################
+# Failure Route for Terminating requests
+######################################################################
+failure_route[isc_term_failure]
+{
+	xlog("L_DBG","ISC_term_failure\n");
+
+	if (t_check_status("(408)|(5..)")){
+		t_on_failure("isc_term_failure");       
+		if (isc_match_filter("term","location")){
+			xlog("L_DBG","Term - msg was fwded to AS\n");    
+			exit;
+		}
+
+		if (lookup("location")) {
+			if ((uri == myself) || is_uri_host_local()) {
+				t_reply("404","Not Found - destination user not found on this S-CSCF");
+				exit;
+			}
+		} else {
+			t_reply("404","Not Found - destination user not found on this S-CSCF");
+			exit;
+		}
+		t_relay();
+	}
+}
+
+######################################################################
+# Terminating, subsequent requests
+######################################################################
+route[term_subsequent]
+{
+	xlog("L_DBG","term_subsequent\n");
+	route(apply_privacy);
+	t_relay();
+}
+
+######################################################################
+# Check for PSTN destinations:
+######################################################################
+route[PSTN_handling]
+{
+	# First, we translate "tel:"-URI's to SIP-URI's:
+	# $ru:           tel:+(34)-999-888-777
+	# $fu:           sip:test@foo.com
+	# becomes $ru:   sip:+34999888777@foo.com;user=phone
+
+	xlog("$$ru => $ru (Input)\n");
+	if ($fd == $null) {
+		if (!tel2sip("$ru", "", "$ru"))
+			xlog("L_WARN","Failed to convert $ru to a sip:-URI - M=$rm R=$ru F=$fu T=$tu IP=$si:$sp ID=$ci\n\n");
+	} else {
+		if (!tel2sip("$ru", "$fd", "$ru"))
+			xlog("L_WARN","Failed to convert $ru to a sip:-URI - M=$rm R=$ru F=$fu T=$tu IP=$si:$sp ID=$ci\n\n");
+	}
+	xlog("$$ru => $ru (after tel2sip)\n");
+
+	if ($rU =~ "\+[0-9]+") {
+		# Now let's check, if the number can be found in ENUM:
+		if(!enum_query() || ($avp(AVP_BREAKOUT) == 1)) {
+			# ENUM failed, send it to the PSTN-Gateway:
+			route(PSTN);
+			break;
+		}
+	}
+}
+
+######################################################################
+# Send calls to the PSTN-Gateways:
+######################################################################
+route[PSTN]
+{
+	$var(has_trf) = 0;
+	if (is_present_hf("Feature-Caps")) {
+		xlog("Feature-Caps: $hdr(Feature-Caps) => $(hdr(Feature-Caps){param.value,+g.3gpp.trf}{nameaddr.uri}{uri.host})\n");
+#!ifdef OLD_STYLE_RAVEL
+		if ($(hdr(Feature-Caps){param.value,+g.3gpp.trf}) != $null) {
+			$rd = $(hdr(Feature-Caps){param.value,+g.3gpp.trf}{nameaddr.uri}{uri.host});
+			if ($(hdr(Feature-Caps){param.value,+g.3gpp.trf}{nameaddr.uri}{uri.port}{s.int}) > 0) {
+				$rp = $(hdr(Feature-Caps){param.value,+g.3gpp.trf}{nameaddr.uri}{uri.port});
+			}
+			if (!strempty($(ou{uri.params}))) {
+				$ru = $ru+";"+$(ou{uri.params});
+			}
+
+			t_on_failure("TRF_failure");
+			if (t_relay_to("0x02")) {
+				$var(has_trf) = 1;
+			} else {
+				xlog("Relay to $du failed.\n");
+				$du = $null;
+			}
+		}
+#!else
+		if ($(hdr(Feature-Caps){param.value,+g.3gpp.trf}) != $null) {
+			# Remove any existing route-headers if present:
+			remove_hf("Route");
+			append_hf("Route: $(hdr(Feature-Caps){param.value,+g.3gpp.trf})\r\n");
+		}
+	
+		# Remove any "+g.3gpp.home-visited" Parameters from the list:
+		# Remove any "+g.3gpp.trf" Parameters from the list:
+		$var(i) = 1;
+		$var(fc) = "*";
+		xlog("Got $(hdr(Feature-Caps){param.count}) Parameters\n");
+		while ($var(i) < $(hdr(Feature-Caps){param.count})) {
+			xlog("Header $var(i): $(hdr(Feature-Caps){param.name,$var(i)})\n");
+                        if ($(hdr(Feature-Caps){param.name,$var(i)}) != "+g.3gpp.home-visited") {
+                                if ($(hdr(Feature-Caps){param.name,$var(i)}) != "+g.3gpp.trf") {
+                                        $var(fc) = $var(fc)+";"+$(hdr(Feature-Caps){param.name,$var(i)});
+                                }
+                        }
+			$var(i) = $var(i) + 1;
+		}
+		$var(fc) = $var(fc)+";+g.3gpp.loopback=\""+$(hdr(Feature-Caps){param.value,+g.3gpp.trf})+"\"";
+
+		# Replace the header with the new content:
+		remove_hf("Feature-Caps");
+		append_hf("Feature-Caps: $var(fc)\r\n");
+#!endif
+	}
+
+	if ($var(has_trf) == 0) {
+#!ifdef WITH_LCR
+		$avp(uri) = $ru;
+		# Select a proper Gateway (default gateway)
+		$avp(CARRIER) = 1;
+		if (!cr_route("$avp(CARRIER)", "outbound", "$rU", "$rU", "call_id")) {
+			xlog("L_WARN","No PSTN-Gateways available - M=$rm R=$ru F=$fu T=$tu IP=$si:$sp ID=$ci\n\n");
+			send_reply("503", "Service not available");
+			exit;
+		}
+#!else
+		if (!ds_select_domain("1", "4")) {
+			xlog("L_WARN","No PSTN-Gateways available - M=$rm R=$ru F=$fu T=$tu IP=$si:$sp ID=$ci\n\n");
+			send_reply("503", "Service not available");
+			exit;
+		}
+#!endif
+		if (!strempty($(ou{uri.params}))) {
+			$ru = $ru+";"+$(ou{uri.params});
+		}
+		t_relay();
+	}
+	# Relay the request:
+	t_on_failure("PSTN_failure");
+
+	exit;
+}
+
+######################################################################
+# manage failure routing cases, perform failover
+######################################################################
+failure_route[TRF_failure] {
+	xlog("TRF_failure\n");
+	# Choose another gateway, in case we
+	# - get a local generated "408"
+	# - receive a 5xx or 6xx reply from the proxy.
+	if (t_branch_timeout() || t_check_status("[5-6]..")) {
+		$du = $null;
+#!ifdef WITH_LCR
+		$avp(PDB_CARRIER) = 1;
+		$avp(LCR_DOM_AVP) = "outbound";
+		$avp(LCR_RURI_AVP) = $ru;
+		# Select a proper Gateway (default gateway)
+		if (!cr_route("$avp(PDB_CARRIER)", "$avp(LCR_DOM_AVP)", "$rU", "$rU", "call_id")) {
+			xlog("L_WARN","No PSTN-Gateways available - M=$rm R=$ru F=$fu T=$tu IP=$si:$sp ID=$ci\n\n");
+			send_reply("503", "Service not available");
+			exit;
+		}
+		$avp(LCR_HOST) = $rd;
+#!else
+		if (!ds_select_domain("1", "4")) {
+			xlog("L_WARN","No PSTN-Gateways available - M=$rm R=$ru F=$fu T=$tu IP=$si:$sp ID=$ci\n\n");
+			send_reply("503", "Service not available");
+			exit;
+		}
+#!endif
+		if (!strempty($(ou{uri.params}))) {
+			$ru = $ru+";"+$(ou{uri.params});
+		}
+		# Relay the request:
+		t_on_failure("PSTN_failure");
+
+		t_relay();
+		exit;
+	}
+}
+
+######################################################################
+# manage failure routing cases, perform failover
+######################################################################
+failure_route[PSTN_failure] {
+	# Choose another gateway, in case we
+	# - get a local generated "408"
+	# - receive a 5xx or 6xx reply from the proxy.
+	if (t_branch_timeout() || t_check_status("[5-6]..")) {
+#!ifdef WITH_LCR
+		$ru = $avp(LCR_RURI_AVP);
+		if (!cr_next_domain("$avp(PDB_CARRIER)", "$avp(LCR_DOM_AVP)", "$rU",
+				"$avp(LCR_HOST)", "$T_reply_code", "$avp(LCR_DOM_AVP)")) {
+			xlog("L_ERR", "cr_next_domain failed\n");
+			exit;
+		}
+		if (!cr_route("$avp(PDB_CARRIER)", "$avp(LCR_DOM_AVP)", "$rU", "$rU", "call_id")) {
+			# Do Failover in case problems:		
+			t_on_failure("PSTN_failure");
+			t_relay();
+		} else {
+			# Add a header, to indicate the phone should try again in 30 seconds.
+			append_hf("Retry-After: 30\r\n");
+			send_reply("503", "Service not available");
+		}
+#!else
+		if (ds_next_domain()) {
+			if (!strempty($(ou{uri.params}))) {
+				$ru = $ru+";"+$(ou{uri.params});
+			}
+			# Do Failover in case problems:		
+			t_on_failure("PSTN_failure");
+			t_relay();
+		} else {
+			# Add a header, to indicate the phone should try again in 30 seconds.
+			append_hf("Retry-After: 30\r\n");
+			send_reply("503", "Service not available");
+		}
+#!endif
+		exit;
+	}
+}
+
+# [KHOA] route for serial forking
+#
+route[SERIAL_FORKING] {
+	
+# if callee is in "Location" database, process
+	if (!lookup("location")) {
+		switch ($rc) {
+			case -1:
+			case -3:
+				xlog("L_ERR", "KHOA SERIAL FORKING: NOT FOUND - $rc");
+				exit;
+			case -2:
+				xlog("L_ERR", "KHOA SERIAL FORKING: NOT ALLOWED - $rc");
+				exit;
+		}
+	}
+	xlog("L_ERR", "KHOA SERIAL FORKING: LOOKUP OK branch: $branch(count) cnt(avp): ct:$ct");
+	$var(i) = 0;
+#after lookup("location"), all contacts are saved in $branch variable
+	$var(max) = $branch(count) - 1; //I dont know why, but minus 1 works
+	while ($var(i) < $var(max))  {
+# add all the contacts to destination set
+		xlog("L_ERR", "KHOA SERIAL FORKING: $var(i) $(branch(q)[$var(i)])");
+		append_branch($(branch(uri)[$var(i)]));	
+		$var(i) = $var(i) + 1;
+	}
+	xlog("L_ERR", "AFTER BRANCH LOOP $ru");
+# pull out all contacts, sort them by Q value and save it somewhere
+	t_load_contacts();
+# load each group of contact by Q value, decreasing
+	t_next_contacts();
+# set route for each event
+	t_on_failure("SERIAL_FAILURE");
+	t_on_reply("SERIAL_REPLY");
+	t_relay();
+	exit;
+}
+
+onreply_route[SERIAL_REPLY] {
+# if the last message is BUSY by the callee, cancel all current branches
+	if (t_check_status("(408)|(486)")) {
+		xlog("L_ERR", "CANCEL ALL BRANCH\n");
+		t_cancel_branches("all");
+		exit;
+	}
+}
+
+failure_route[SERIAL_FAILURE] {
+	xlog("L_ERR", "FAILURE $T(reply_code) $rs");
+	if (t_any_timeout()) {
+		xlog("L_ERR", "timeout $rc\n");
+	}
+	#if (t_branch_timeout()) {
+		#xlog("L_ERR", "branch timeout $rc\n");
+	#}
+	#if (t_is_canceled()) {
+		#xlog("L_ERR", "cancel $rc\n");
+	#}
+	#if (t_is_expired()) {
+		#xlog("L_ERR", "expired $rc\n");
+	#}
+	if (t_any_timeout()) {
+		if(!t_next_contacts()) {
+			xlog("L_ERR", "NO NEXT CONTACT");
+			
+			t_reply("408", "BUSY NOT FOUND");
+			exit;
+		}
+
+		t_on_failure("SERIAL_FAILURE");
+		t_on_reply("SERIAL_REPLY");
+		t_relay();
+`		exit;
+	}
+	exit;
+
+}
+
+#[KHOA] Because We dont' have time for implement an actual AS,
+# so we implements blacklist service inside S-CSCF itsefl,
+# The config is straighforward, check SQL if the route exist
+# Then block on demand
+route[BLACKLISTING]
+{
+	xlog("L_ERR", "BLACKLIST $ru $rU $rd $ai");
+	$var(query) = "select * from blacklist_service where username_to = '" + $rU + "' and username_from = '" + $avp(sender) + "'";
+	xlog("L_ERR", "$var(query)");
+	sql_query("ca", "$var(query)", "ra");
+	xlog("L_ERR", "number of rows in table: $rc $dbr(ra=>rows)");
+	if ($dbr(ra=>rows) > 0) {
+		xlog("L_ERR", "global black list");
+		send_reply("403", "Forbidden - Call not allowed");
+		sql_result_free("ra");
+		exit;
+	} 
+	sql_result_free("ra");
+	route(FINAL_ORIG);
+	exit;
+	#xlog("L_ERR", "fetch: row_no: %@db.fetch.handle.row_no");
+	#$var(tmp) = $rU;
+	#$rU = $avp(sender);
+	
+	#xlog("L_ERR", "sender sender $avp(sender)");
+	
+	#if (!check_user_blacklist("$rU", "$rd")) {
+		#$rU = $var(tmp);
+		#xlog("L_ERR", "global black list");
+		#send_reply("403", "Forbidden - Call not allowed");
+		//t_relay();
+		#exit;
+	#}
+	#else {
+		#$rU = $var(tmp);
+		#route(SERIAL_FORKING);
+		#exit;
+	#}
+
+   
+}
+# [KHOA] The same thing is use for FORWARDING
+# but PO won't accept this approach
+
+route[FORWARDING] {
+	
+	xlog("L_ERR", "FORWARDING $ru $rU $rd $ai");
+	$var(temp) = $ru;
+	$var(query) = "select * from forwarding_service where username_to = '" + $rU + "'";
+	xlog("L_ERR", "$var(query)");
+	sql_query("ca", "$var(query)", "ra");
+	xlog("L_ERR", "number of rows in table: $rc $dbr(ra=>rows)");
+	if ($dbr(ra=>rows) > 0) {
+		$var(rU) = $dbr(ra=>[0,2]);
+		$var(rd) = $dbr(ra=>[0,3]);
+		xlog("L_ERR", "sender sender rU: $var(rU), rd: $var(rd)");
+		$ru = "sip:" + $var(rU) + "@" + $var(rd);
+		if ($ru == $ai) {
+			t_reply(403, "USER not found");
+			exit;
+		}
+		sql_result_free("ra");
+	#	route(SERIAL_FORKING);
+		exit;
+	} 
+	sql_result_free("ra");
+	exit;
+	
+}
+
+# good luck
+
+

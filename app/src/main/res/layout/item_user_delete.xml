@@ -40,7 +40,7 @@
                 android:id="@+id/itemUserCall_userName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Be on Fresh"
+                android:text="M.IT 26"
                 android:textSize="25sp"
                 android:textColor="#232323">
             </TextView>

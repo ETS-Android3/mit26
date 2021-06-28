@@ -1,0 +1,61 @@
+1) Insert table blacklist_service in database scscf;
+// blacklist_service is in the scscf
+ use scscf;
+// insert databases: caller_BL is block by the callee_BL
+insert into blacklist_service  values("caller_BL","bof-ims.dek.vn","callee_BL","bof-ims.dek.vn");
+2) change service profile to run feature "call redirect" :
+- open FHOss : 192.168.122.40:8080
+- In filed "user identities" select field " public user identity"  
+- In filed " service profile" select "trinh_sp" --> save --> refresh
+- restart node S_CSCF : /etc/init.d/kamailio_scscf restart 
+3) create account in hss:
+- IMSU : 
+  + name : caller
+  + Capabilities Set : cap_set_1
+  + Preferred S-CSCF : bof-scscf
+  --> save
+- IMPI : 
+ + click create & bind new IMPI 
+ + Identity* : caller@bof-ims.dek.vn
+ + secret key : 12343384
+ +  Authentication Schemes*: select ALL
+  ---> save
+- IMPU:
+  + click Create & Bind new IMPU 
+  + Identity*: sip:caller@bof-ims.dek.vn
+  + select more fileds in sevice profile, charfing-info set, IMPU type.
+   ---> save
+- insert to database "BOFdatabase" \
+
+
+
+
+HOW TO DEBUG SERVER
+: in the config file, xlog("L_DEBUG", "...") or xlog("L_ERR", "...") put in ... some marker that you can search for
+: restart kamailio
+: $ less /var/log/syslog ---> to view syslog, this file is huge, so press "G" to go to the end of the file
+then "?<what you want to search>", press "n" to go to the next match result
+: sometime read /var/log/kamailio.log is a decent alternative
+: to check what wrong in the configuration file
+$ /etc/init.d/kamailio_scscf debug | less
+: then "?config" to see config error (syntax, core dump)
+
+HOW TO ADD SERVICE PROFILE:
+
++ create "Application Servers" : 
+		- name* is any name you want
+		- Server Name* : sip: + ( ip application server  or domain application server ) 
+		- Diameter FQDN* : edit config with : /home/bof/FHoSS/config/DiameterPeerHSS.xml and add in this field or ip same application server
+		- Sh interface - permission : depend on needs for use (i was tick all :3).
+
++ create "Trigger Points" :
+		- name* any.
+		- condition tyoe CNF* : recommend Conjunctive Normal..
+		- Add SPT (important) :should focus SIP Invite and Session Case  and CSCF in lab not support Tern-Unreg (for redirect service ) =>  should test each case 
++ create "Inital Filter Criteria" : 
+		- attach trigger point and application just created
+
+=> create "Service Profiles"  => attach IFC just created
+
+
+
