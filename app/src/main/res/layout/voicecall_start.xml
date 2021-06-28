@@ -6,7 +6,6 @@
     android:background="@drawable/gradient"
     android:weightSum="100"
     android:orientation="vertical">
-
     <LinearLayout
         android:orientation="vertical"
         android:gravity="center"
@@ -52,8 +51,7 @@
             android:text=""
             android:textColor="#302F2F"
             android:textStyle="bold"
-            android:textSize="23sp" />
-
+            android:textSize="23sp"></TextView>
         <TextView
             android:id="@+id/connecting_voice"
             android:layout_width="wrap_content"
@@ -62,7 +60,7 @@
             android:text=""
             android:textColor="#302F2F"
             android:textStyle="bold"
-            android:textSize="18sp" />
+            android:textSize="18sp"></TextView>
         <Chronometer
             android:visibility="invisible"
             android:id="@+id/time"

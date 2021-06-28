@@ -126,13 +126,13 @@ public class videoCall_Start extends Activity {
         LinphoneService.getCore().addListener(mCoreListener);
         resizePreview();
     }
-    // athang - mit26
+
     @Override
     protected void onPause() {
         LinphoneService.getCore().removeListener(mCoreListener);
         super.onPause();
     }
-    // athang - mit26
+
     @Override
     protected void onDestroy() {
         super.onDestroy();

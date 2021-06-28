@@ -81,13 +81,8 @@ public class addGroup extends AppCompatActivity {
                 preparedStatement.setString(1, params[0]);
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
-                    // athang - mit26
-                    arrayList.add(new userChat(idBoxChat, resultSet.getString("idUser"),
-                            resultSet.getString("moreInfo"),
-                            resultSet.getString("displayName"),
-                            "", "", ""));
+                    arrayList.add(new userChat(idBoxChat, resultSet.getString("idUser"), resultSet.getString("moreInfo"), resultSet.getString("displayName"), "", "", ""));
                 }
-                // athang - mit26
                 con.close();
             } catch (SQLException e) {
                 e.printStackTrace();

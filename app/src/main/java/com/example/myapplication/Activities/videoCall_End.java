@@ -103,12 +103,5 @@ public class videoCall_End extends AppCompatActivity {
         super.onResume();
         LinphoneService.getCore().addListener(mCoreListener);
     }
-    // athang - mit26
-    @Override
 
-    protected void onPause() {
-        super.onPause();
-        LinphoneService.getCore().removeListener(mCoreListener);
-    }
-// athang - mit26
 }

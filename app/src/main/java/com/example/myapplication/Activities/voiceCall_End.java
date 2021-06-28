@@ -74,12 +74,15 @@ public class voiceCall_End extends AppCompatActivity {
                     String callLength = time.getText().toString();
 
                     if (state == Call.State.End) {
+
                         Toast.makeText(getApplicationContext(), "Voice calls duration: " + callLength, Toast.LENGTH_LONG).show();
                         LinphoneService.getCore().clearCallLogs();
+                        LinphoneService.getCore().removeListener(mCoreListener);
+
                     }
-                    // athang - mit26
-                    LinphoneService.getCore().removeListener(mCoreListener);
+
                     finish();
+
                 }
             }
         };
@@ -143,12 +146,7 @@ public class voiceCall_End extends AppCompatActivity {
         super.onResume();
         LinphoneService.getCore().addListener(mCoreListener);
     }
-    // athang - mit26
-    protected void onPause() {
-        super.onPause();
-        LinphoneService.getCore().removeListener(mCoreListener);
-    }
-    // athang - mit26
+
     private void mapping() {
         btn_accept = findViewById(R.id.voicecall_end_img_accept);
         btn_reject = findViewById(R.id.voicecall_end_img_reject);
@@ -180,6 +178,7 @@ public class voiceCall_End extends AppCompatActivity {
     private void setLayoutAccept() {
         layout_waiting_accept.setVisibility(View.GONE);
         layout_accepted.setVisibility(View.VISIBLE);
+
     }
 
     private void stopVoiceCall() {

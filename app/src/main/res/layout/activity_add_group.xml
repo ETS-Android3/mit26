@@ -35,7 +35,6 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="5">
-
             <Button
                 android:background="@drawable/gradient_btn"
                 android:id="@+id/btnCreateDone"
@@ -43,7 +42,7 @@
                 android:layout_height="wrap_content"
                 android:text="Done"
 
-                />
+                ></Button>
         </LinearLayout>
 
 

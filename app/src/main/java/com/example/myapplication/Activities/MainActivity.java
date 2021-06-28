@@ -30,12 +30,9 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.CompoundButton;
-import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
-import android.widget.ToggleButton;
 
 import com.airbnb.lottie.L;
 import com.example.myapplication.Model.Message;
@@ -73,16 +70,11 @@ public class MainActivity extends AppCompatActivity {
 
     Toolbar toolbar;
     BottomNavigationView bottomNavigationView;
-
     private CoreListenerStub mCoreListener;
     private NotificationManagerCompat notificationManagerCompat;
     public static final String CHANNEL__ID = "channel";
     Timer timer = new Timer();
     private boolean flag = true;
-    private long backPressedTime;
-    private Toast backToast;
-    View redirect;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -111,6 +103,7 @@ public class MainActivity extends AppCompatActivity {
                         toolbar.setTitle("Call");
                         flag = false;
                         break;
+
                 }
                 return true;
             }
@@ -125,16 +118,21 @@ public class MainActivity extends AppCompatActivity {
 
             }
         };
+//        timer.scheduleAtFixedRate(new TimerTask() {
+//            @Override
+//            public void run() {
+//                listUserChat listUserChat = new listUserChat();
+//                replaceFragment(listUserChat);
+//            }
+//        },0,5000);
+
     }
 
 
     public void mapping() {
         toolbar = findViewById(R.id.toolbar);
         bottomNavigationView = findViewById(R.id.bottom_navigation);
-        redirect = findViewById(R.id.Redirect);
     }
-
-
 
     private void createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -175,12 +173,13 @@ public class MainActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         switch (item.getItemId()) {
             case R.id.logout:
+                finish();
+                Intent intent = new Intent(getApplicationContext(), Login.class);
+                startActivity(intent);
+                overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
                 configureLogout();
-                break;
-            // athang - mit26: menu redirect call
-            case R.id.Redirect:
-                Intent intentRedirect = new Intent(MainActivity.this, Redirect.class);
-                startActivity(intentRedirect);
+                updateLed(LinphoneService.getCore().getDefaultProxyConfig().getState());
+
                 break;
         }
         return super.onOptionsItemSelected(item);
@@ -199,6 +198,7 @@ public class MainActivity extends AppCompatActivity {
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
         transaction.replace(R.id.container1, newFragment);
         transaction.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
+        // transaction.addToBackStack(null);
         transaction.commit();
     }
 
@@ -209,7 +209,15 @@ public class MainActivity extends AppCompatActivity {
         // We don't need them here but once the user has granted them we won't have to ask again
 
         checkAndRequestCallPermissions();
+//        listUserChat listUserChat = new listUserChat();
+//        replaceFragment(listUserChat);
     }
+
+//    @Override
+//    protected void onRestart() {
+//        super.onRestart();
+//
+//    }
 
     @Override
     protected void onResume() {
@@ -223,6 +231,7 @@ public class MainActivity extends AppCompatActivity {
             if (flag) {
                 listUserChat listUserChat = new listUserChat();
                 // addFragment(listUserChat);
+
                 replaceFragment(listUserChat);
             } else {
                 listUserCall listUserCall = new listUserCall();
@@ -260,8 +269,8 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onPause() {
-        // Like I said above, remove unused Core listeners in onPause
         super.onPause();
+        // Like I said above, remove unused Core listeners in onPause
         LinphoneService.getCore().removeListener(mCoreListener);
     }
 
@@ -270,21 +279,6 @@ public class MainActivity extends AppCompatActivity {
         LinphoneService.getCore().clearAllAuthInfo();
         LinphoneService.getCore().clearProxyConfig();
         super.onDestroy();
-    }
-
-    @Override
-    public void onBackPressed() {
-        // Close app when press back 2 times
-        if (backPressedTime + 2000 > System.currentTimeMillis()) {
-            backToast.cancel();
-            super.onBackPressed();
-            configureLogout();
-        }
-        else {
-            backToast = Toast.makeText(getBaseContext(), "Press back again to logout", Toast.LENGTH_SHORT);
-            backToast.show();
-        }
-        backPressedTime = System.currentTimeMillis();
     }
 
     @Override
@@ -338,12 +332,23 @@ public class MainActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this, permissions, 0);
         }
     }
-    // athang - mit26: fix lai log out team trươc
+
     private void configureLogout() {
-        finish();
-        Intent intent = new Intent(getApplicationContext(), Login.class);
-        startActivity(intent);
-        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
+        // At least the 3 below values are required
+
+
+        // By default it will be UDP if not set, but TLS is strongly recommended
+//        switch (mTransport.getCheckedRadioButtonId()) {
+//            case R.id.transport_udp:
+        //mAccountCreator = LinphoneService.getCore().createAccountCreator(null);
+//                break;
+//            case R.id.transport_tcp:
+//                mAccountCreator.setTransport(TransportType.Tcp);
+//                break;
+//            case R.id.transport_tls:
+//                mAccountCreator.setTransport(TransportType.Tls);
+//                break;
+        //       }
 
         // This will automatically create the proxy config and auth info and add them to the Core
         ProxyConfig cfg = LinphoneService.getCore().getDefaultProxyConfig();
@@ -353,7 +358,6 @@ public class MainActivity extends AppCompatActivity {
 
         // Make sure the newly created one is the default
         LinphoneService.getCore().setDefaultProxyConfig(cfg);
-        updateLed(LinphoneService.getCore().getDefaultProxyConfig().getState());
     }
 
     @RequiresApi(api = Build.VERSION_CODES.KITKAT)
