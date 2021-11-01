@@ -1,6 +1,6 @@
 # M.IT26
 
-##### IMPORTANT: we do recommend to completely re-build the whole application, as all we do is adding new features and fixing related bugs, while the main flow of the application (see 'Development') is incorrect.
+##### IMPORTANT: we do recommend to completely re-factor the application, as all we do is adding new features and fixing related bugs, while the main flow of the application (see 'Development') is incorrect.
 
 This application is inherited from BoF (Be On Fresh) and extended/maintained by M.IT26.
 
